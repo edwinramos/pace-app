@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+android/
+ios/
+*.apk
+*.aab
+.env
+.env*.local
+*.keystore
+*.jks
+coverage/
+.DS_Store
+npm-debug.log*
+web-build/

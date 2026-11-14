@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Pace",
+    "slug": "pace",
+    "version": "0.1.0",
+    "scheme": "pace",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0E1012",
+    "platforms": [
+      "android"
+    ],
+    "android": {
+      "package": "com.edwinramos.pace",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0E1012"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Pace usa tu ubicación para grabar la carrera y pedir el clima de tu zona."
+        }
+      ],
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
