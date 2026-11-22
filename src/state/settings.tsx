@@ -9,7 +9,7 @@ export interface Settings {
   units: Units;
   voice: boolean;
   healthSource: HealthSource;
-  gpsMode: 'gps' | 'sim';
+  gpsMode: 'gps' | 'treadmill' | 'sim';
 }
 
 interface Ctx extends Settings {
@@ -42,7 +42,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       units: units === 'mi' ? 'mi' : 'km',
       voice: voice === '1',
       healthSource: healthSource === 'mock' ? 'mock' : 'manual',
-      gpsMode: gpsMode === 'sim' ? 'sim' : 'gps',
+      gpsMode: gpsMode === 'sim' ? 'sim' : gpsMode === 'treadmill' ? 'treadmill' : 'gps',
     });
     setLoaded(true);
   }, [db]);

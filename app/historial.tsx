@@ -55,7 +55,7 @@ export default function Historial() {
                   <View style={{ flex: 1, gap: 2 }}>
                     <T weight="bold">{s.dist(r.distance_m)} {s.du} · {s.pace(r.avg_pace_s)} {s.pu}</T>
                     <T size={12} color={colors.muted}>
-                      {longDate(new Date(r.started_at))} · {r.route_id ? routes.get(r.route_id) ?? 'ruta' : 'libre'}
+                      {longDate(new Date(r.started_at))} · {r.gps_mode === 'treadmill' ? 'caminadora' : (r.route_id ? routes.get(r.route_id) ?? 'ruta' : 'libre')}
                       {r.session_type ? ` · ${SESSION_LABEL[r.session_type as keyof typeof SESSION_LABEL] ?? r.session_type}` : ''}
                       {r.gps_mode === 'sim' ? ' · simulada' : ''}
                     </T>

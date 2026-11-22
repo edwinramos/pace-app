@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteMap } from '@/components/RouteMap';
 import { Button, Card, Label, Row, T } from '@/components/ui';
 import * as repo from '@/db/repo';
-import { formatDuration, formatPace } from '@/engine/format';
+import { formatDuration, formatNumber, formatPace } from '@/engine/format';
 import { loopAround } from '@/engine/geo';
 import { estimateKcal, splitPace } from '@/engine/run';
 import { finishRun } from '@/state/actions';
@@ -19,14 +19,21 @@ import { colors, fonts } from '@/theme';
 
 export default function Live() {
   useKeepAwake();
-  const params = useLocalSearchParams<{ routeId?: string; mode?: string; speed?: string; shoeId?: string }>();
+  const params = useLocalSearchParams<{
+    routeId?: string;
+    mode?: string;
+    speed?: string;
+    treadmillSpeed?: string;
+    treadmillIncline?: string;
+    shoeId?: string;
+  }>();
   const t = useToday();
   const st = useSettings();
   const db = useSQLiteContext();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const route = t.routes.find((r) => r.id === params.routeId) ?? null;
-  const mode = params.mode === 'sim' ? 'sim' : 'gps';
+  const mode = params.mode === 'sim' ? 'sim' : params.mode === 'treadmill' ? 'treadmill' : 'gps';
+  const route = mode === 'treadmill' ? null : (t.routes.find((r) => r.id === params.routeId) ?? null);
   const shoeId = params.shoeId || null;
   const [voice, setVoice] = useState(st.voice);
   const [locked, setLocked] = useState(false);
@@ -38,6 +45,9 @@ export default function Live() {
     mode,
     route: route ? { path: route.path, outAndBack: route.outAndBack } : { path: freeLoop, outAndBack: false },
     speedup: Number(params.speed ?? 1) || 1,
+    initialSpeedKmh: Number(params.treadmillSpeed ?? 10) || 10,
+    initialInclinePct: Number(params.treadmillIncline ?? 1) || 0,
+    origin: { lat: t.profile?.home_lat ?? 18.4655, lon: t.profile?.home_lon ?? -69.8863 },
     voice,
   });
 
@@ -74,8 +84,8 @@ export default function Live() {
           target_to: target?.to ?? null,
           recommendation_date: t.rec?.fecha ?? null,
           gps_mode: mode,
-          weather_apparent: t.weather?.current.apparent ?? null,
-          weather_humidity: t.weather?.current.humidity ?? null,
+          weather_apparent: mode === 'treadmill' ? null : (t.weather?.current.apparent ?? null),
+          weather_humidity: mode === 'treadmill' ? null : (t.weather?.current.humidity ?? null),
         },
         run.points,
         run.splits,
@@ -101,6 +111,8 @@ export default function Live() {
   const live = useMemo(() => run.points.map((p) => ({ lat: p.lat, lon: p.lon })), [run.points.length]);
   const splitsShown = run.splits.slice(-5);
 
+  const modeLabel = mode === 'treadmill' ? 'Caminadora (en casa)' : mode === 'sim' ? 'GPS simulado' : 'GPS trabajando';
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 10, paddingHorizontal: 16, paddingBottom: 200, gap: 12 }}>
@@ -108,14 +120,14 @@ export default function Live() {
           <Row gap={6}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: run.status === 'running' ? colors.lime : run.status === 'paused' ? colors.amber : colors.dim }} />
             <Label color={run.status === 'running' ? colors.lime : colors.muted}>
-              {mode === 'sim' ? 'GPS simulado' : 'GPS trabajando'} · {run.status === 'running' ? 'En curso' : run.status === 'paused' ? 'En pausa' : 'Listo'}
+              {modeLabel} · {run.status === 'running' ? 'En curso' : run.status === 'paused' ? 'En pausa' : 'Listo'}
             </Label>
           </Row>
           <Pressable onPress={cancel} hitSlop={10} disabled={locked}>
             <Feather name="x" size={20} color={colors.muted} />
           </Pressable>
         </Row>
-        <Label>{route?.name ?? 'Carrera libre'} · meta {st.dist(goalKm * 1000)} {st.du}</Label>
+        <Label>{mode === 'treadmill' ? 'Corrida en caminadora' : (route?.name ?? 'Carrera libre')} · meta {st.dist(goalKm * 1000)} {st.du}</Label>
 
         <Card>
           <Label>Tiempo activo</Label>
@@ -128,6 +140,51 @@ export default function Live() {
             <View style={{ width: `${Math.min(100, (run.distanceM / 1000 / goalKm) * 100)}%`, height: 6, borderRadius: 3, backgroundColor: colors.lime }} />
           </View>
         </Card>
+
+        {mode === 'treadmill' ? (
+          <Card accent={colors.lime}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Label color={colors.lime}>Control de caminadora</Label>
+              <T mono size={11} color={colors.muted}>+{Math.round(run.gainM)} m desnivel</T>
+            </Row>
+            <Row gap={10}>
+              <View style={{ flex: 1, backgroundColor: colors.cardHi, borderRadius: 14, padding: 10, gap: 8, borderWidth: 1, borderColor: colors.border }}>
+                <Label>Velocidad (km/h)</Label>
+                <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <StepBtn icon="minus" disabled={locked} onPress={() => run.setTreadmillSpeed(run.treadmillSpeedKmh - 0.5)} />
+                  <View style={{ alignItems: 'center' }}>
+                    <T size={24} weight="extrabold" color={colors.lime}>{formatNumber(run.treadmillSpeedKmh, 1)}</T>
+                    <T size={11} color={colors.muted}>{st.pace(3600 / run.treadmillSpeedKmh)} {st.pu}</T>
+                  </View>
+                  <StepBtn icon="plus" disabled={locked} onPress={() => run.setTreadmillSpeed(run.treadmillSpeedKmh + 0.5)} />
+                </Row>
+              </View>
+              <View style={{ flex: 1, backgroundColor: colors.cardHi, borderRadius: 14, padding: 10, gap: 8, borderWidth: 1, borderColor: colors.border }}>
+                <Label>Inclinación (%)</Label>
+                <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <StepBtn icon="minus" disabled={locked} onPress={() => run.setTreadmillIncline(run.treadmillInclinePct - 0.5)} />
+                  <View style={{ alignItems: 'center' }}>
+                    <T size={24} weight="extrabold" color={colors.cyan}>{formatNumber(run.treadmillInclinePct, 1)} %</T>
+                    <T size={11} color={colors.muted}>+{Math.round(run.treadmillInclinePct * 10)} m/km</T>
+                  </View>
+                  <StepBtn icon="plus" disabled={locked} onPress={() => run.setTreadmillIncline(run.treadmillInclinePct + 0.5)} />
+                </Row>
+              </View>
+            </Row>
+            <Row gap={6} style={{ flexWrap: 'wrap' }}>
+              {[8, 9, 10, 11, 12, 14].map((v) => {
+                const active = Math.abs(run.treadmillSpeedKmh - v) < 0.05;
+                return (
+                  <Pressable key={v} disabled={locked} onPress={() => run.setTreadmillSpeed(v)} style={{ flex: 1 }}>
+                    <View style={{ paddingVertical: 6, borderRadius: 10, alignItems: 'center', backgroundColor: active ? colors.lime + '22' : colors.cardHi, borderWidth: 1, borderColor: active ? colors.lime : colors.border }}>
+                      <T mono size={11} weight="bold" color={active ? colors.lime : colors.muted}>{v} km/h</T>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </Row>
+          </Card>
+        ) : null}
 
         <Row gap={10}>
           <Card style={{ flex: 1 }}>
@@ -154,11 +211,13 @@ export default function Live() {
           </Card>
         </Row>
 
-        {route || live.length > 1 ? (
-          <RouteMap path={route?.path ?? []} live={live} height={150} caption={`Traza GPS ${mode === 'sim' ? 'simulada' : 'en vivo'} · +${Math.round(run.gainM)} m`} />
-        ) : (
-          <Card><T size={12} color={colors.muted}>{run.status === 'idle' ? 'La traza aparecerá al empezar.' : 'Esperando señal GPS…'}</T></Card>
-        )}
+        {mode !== 'treadmill' ? (
+          route || live.length > 1 ? (
+            <RouteMap path={route?.path ?? []} live={live} height={150} caption={`Traza GPS ${mode === 'sim' ? 'simulada' : 'en vivo'} · +${Math.round(run.gainM)} m`} />
+          ) : (
+            <Card><T size={12} color={colors.muted}>{run.status === 'idle' ? 'La traza aparecerá al empezar.' : 'Esperando señal GPS…'}</T></Card>
+          )
+        ) : null}
         {run.error ? (
           <Card accent={colors.coral}>
             <T size={13} color={colors.coral}>{run.error}</T>
@@ -228,6 +287,16 @@ export default function Live() {
         )}
       </View>
     </View>
+  );
+}
+
+function StepBtn({ icon, onPress, disabled }: { icon: 'plus' | 'minus'; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} hitSlop={8}>
+      <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.4 : 1 }}>
+        <Feather name={icon} size={16} color={colors.text} />
+      </View>
+    </Pressable>
   );
 }
 
