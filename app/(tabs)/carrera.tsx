@@ -122,7 +122,7 @@ export default function Carrera() {
               </View>
             </Row>
             <T size={11} color={colors.dim} style={{ lineHeight: 16 }}>
-              Corrida en casa (caminadora): sin GPS. Puedes subir o bajar la velocidad (km/h) y la inclinación (%) en vivo mientras corres.
+              Corrida en caminadora: sin GPS. Puedes subir o bajar la velocidad (km/h) y la inclinación (%) en vivo mientras corres.
             </T>
           </View>
         ) : (

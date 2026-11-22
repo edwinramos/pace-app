@@ -110,7 +110,7 @@ export default function Resumen() {
       <Header eyebrow="Resumen de sesión" title={title} back />
       <T size={13} color={colors.muted}>
         {longDate(new Date(run.started_at))} · {new Date(run.started_at).toTimeString().slice(0, 5)}
-        {run.gps_mode === 'sim' ? ' · GPS simulado' : run.gps_mode === 'treadmill' ? ' · Caminadora (en casa)' : ''}
+        {run.gps_mode === 'sim' ? ' · GPS simulado' : run.gps_mode === 'treadmill' ? ' · Caminadora' : ''}
       </T>
       {alert ? (
         <Card accent={colors.coral}>

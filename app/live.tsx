@@ -111,7 +111,7 @@ export default function Live() {
   const live = useMemo(() => run.points.map((p) => ({ lat: p.lat, lon: p.lon })), [run.points.length]);
   const splitsShown = run.splits.slice(-5);
 
-  const modeLabel = mode === 'treadmill' ? 'Caminadora (en casa)' : mode === 'sim' ? 'GPS simulado' : 'GPS trabajando';
+  const modeLabel = mode === 'treadmill' ? 'Caminadora' : mode === 'sim' ? 'GPS simulado' : 'GPS trabajando';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
