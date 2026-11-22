@@ -2,25 +2,35 @@ import * as Speech from 'expo-speech';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatPace } from '../engine/format';
 import { computeSplits, currentPace, elevationGain, totalDistance, type Split, type TrackPoint } from '../engine/run';
-import { createTracker, type GpsMode, type LocationTracker } from '../services/location';
+import { createTracker, type GpsMode, type LocationTracker, type TreadmillTracker } from '../services/location';
 
 export type RunStatus = 'idle' | 'running' | 'paused' | 'finished';
 
 /**
  * Estado de una carrera en vivo. El tiempo en movimiento sale del reloj de
- * pared en modo GPS y de los timestamps virtuales en modo simulado (que puede ir
- * acelerado).
+ * pared en modo GPS / caminadora y de los timestamps virtuales en modo simulado
+ * (que puede ir acelerado).
  */
 export function useRunSession(opts: {
   mode: GpsMode;
   route?: { path: [number, number][]; outAndBack: boolean };
   speedup?: number;
+  initialSpeedKmh?: number;
+  initialInclinePct?: number;
+  origin?: { lat: number; lon: number };
   voice: boolean;
 }) {
   const [status, setStatus] = useState<RunStatus>('idle');
   const [points, setPoints] = useState<TrackPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [, setTick] = useState(0);
+  const [treadmillSpeedKmh, setTreadmillSpeedState] = useState<number>(
+    Math.max(1, Math.min(25, Math.round((opts.initialSpeedKmh ?? 10) * 10) / 10)),
+  );
+  const [treadmillInclinePct, setTreadmillInclineState] = useState<number>(
+    Math.max(0, Math.min(15, Math.round((opts.initialInclinePct ?? 1) * 2) / 2)),
+  );
+
   const tracker = useRef<LocationTracker | null>(null);
   const segment = useRef(0);
   const startedAt = useRef<number | null>(null);
@@ -30,7 +40,30 @@ export function useRunSession(opts: {
   const voiceRef = useRef(opts.voice);
   voiceRef.current = opts.voice;
 
-  if (!tracker.current) tracker.current = createTracker(opts.mode, opts.route, { speedup: opts.speedup });
+  if (!tracker.current) {
+    tracker.current = createTracker(opts.mode, opts.route, {
+      speedup: opts.speedup,
+      initialSpeedKmh: treadmillSpeedKmh,
+      initialInclinePct: treadmillInclinePct,
+      origin: opts.origin,
+    });
+  }
+
+  const setTreadmillSpeed = useCallback((kmh: number) => {
+    const clamped = Math.max(1, Math.min(25, Math.round(kmh * 10) / 10));
+    setTreadmillSpeedState(clamped);
+    if (tracker.current && tracker.current.mode === 'treadmill') {
+      (tracker.current as TreadmillTracker).setSpeedKmh(clamped);
+    }
+  }, []);
+
+  const setTreadmillIncline = useCallback((pct: number) => {
+    const clamped = Math.max(0, Math.min(15, Math.round(pct * 2) / 2));
+    setTreadmillInclineState(clamped);
+    if (tracker.current && tracker.current.mode === 'treadmill') {
+      (tracker.current as TreadmillTracker).setInclinePct(clamped);
+    }
+  }, []);
 
   // refresco del cronómetro
   useEffect(() => {
@@ -94,7 +127,7 @@ export function useRunSession(opts: {
     movingS = (accMs.current + (resumedAt.current ? Date.now() - resumedAt.current : 0)) / 1000;
   }
   const splits: Split[] = computeSplits(points);
-  const pace = currentPace(points);
+  const pace = opts.mode === 'treadmill' ? 3600 / treadmillSpeedKmh : currentPace(points);
   const avgPace = distanceM > 50 ? movingS / (distanceM / 1000) : null;
 
   // coach por voz cada km (expo-speech funciona en Expo Go)
@@ -120,6 +153,10 @@ export function useRunSession(opts: {
     avgPace,
     gainM: elevationGain(points),
     startedAt: startedAt.current,
+    treadmillSpeedKmh,
+    treadmillInclinePct,
+    setTreadmillSpeed,
+    setTreadmillIncline,
     start,
     pause,
     resume,

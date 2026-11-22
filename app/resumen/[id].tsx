@@ -51,8 +51,9 @@ export default function Resumen() {
   const full = splits.filter((s) => !s.partialKm);
   const fastest = full.length ? full.reduce((a, b) => (splitPace(b) < splitPace(a) ? b : a)) : null;
   const slowest = full.length > 1 ? full.reduce((a, b) => (splitPace(b) > splitPace(a) ? b : a)) : null;
+  const isTreadmill = run.gps_mode === 'treadmill';
   const text = diagnose({ splits, target, humidity: run.weather_humidity ?? undefined, apparent: run.weather_apparent ?? undefined, shoe });
-  const title = `${run.session_type ? cap(SESSION_LABEL[run.session_type as keyof typeof SESSION_LABEL] ?? run.session_type) : 'Carrera'} · ${route?.name ?? 'libre'}`;
+  const title = `${run.session_type ? cap(SESSION_LABEL[run.session_type as keyof typeof SESSION_LABEL] ?? run.session_type) : 'Carrera'} · ${isTreadmill ? 'caminadora' : (route?.name ?? 'libre')}`;
   const trace = points.map((p) => ({ lat: p.lat, lon: p.lon }));
 
   const saveHC = async () => {
@@ -109,7 +110,7 @@ export default function Resumen() {
       <Header eyebrow="Resumen de sesión" title={title} back />
       <T size={13} color={colors.muted}>
         {longDate(new Date(run.started_at))} · {new Date(run.started_at).toTimeString().slice(0, 5)}
-        {run.gps_mode === 'sim' ? ' · GPS simulado' : ''}
+        {run.gps_mode === 'sim' ? ' · GPS simulado' : run.gps_mode === 'treadmill' ? ' · Caminadora' : ''}
       </T>
       {alert ? (
         <Card accent={colors.coral}>
@@ -119,7 +120,7 @@ export default function Resumen() {
       ) : null}
       {marked ? <Chip label="Sesión del plan marcada como hecha" color={colors.lime} /> : null}
 
-      {trace.length > 1 ? <RouteMap path={route?.path ?? []} live={trace} caption={fastest && slowest ? `Km más rápido: ${fastest.km} · más lento: ${slowest.km}` : 'Traza'} /> : null}
+      {!isTreadmill && trace.length > 1 ? <RouteMap path={route?.path ?? []} live={trace} caption={fastest && slowest ? `Km más rápido: ${fastest.km} · más lento: ${slowest.km}` : 'Traza'} /> : null}
 
       <View style={{ gap: 2 }}>
         <Label>Distancia total</Label>
@@ -132,7 +133,7 @@ export default function Resumen() {
         <Card style={{ flex: 1 }}><Stat label="Ritmo medio" value={st.pace(run.avg_pace_s)} unit={st.pu} sub={target ? `Objetivo ${st.pace(target.from)}–${st.pace(target.to)}` : undefined} /></Card>
       </Row>
       <Row gap={10}>
-        <Card style={{ flex: 1 }}><Stat label="Desnivel +" value={`${Math.round(run.gain_m ?? 0)} m`} sub="del GPS" /></Card>
+        <Card style={{ flex: 1 }}><Stat label="Desnivel +" value={`${Math.round(run.gain_m ?? 0)} m`} sub={isTreadmill ? 'por inclinación' : 'del GPS'} /></Card>
         <Card style={{ flex: 1 }}><Stat label="Calorías" value={run.kcal != null ? `${Math.round(run.kcal)}` : '—'} sub={run.kcal != null ? 'estimadas' : 'pon tu peso en Perfil'} /></Card>
       </Row>
 
@@ -167,7 +168,7 @@ export default function Resumen() {
         ) : null}
       </Card>
 
-      {!run.route_id ? (
+      {!run.route_id && !isTreadmill ? (
         <Card>
           <Label>Guardar como ruta</Label>
           <Field value={routeName} onChangeText={setRouteName} placeholder={`Ruta del ${longDate(new Date(run.started_at))}`} />

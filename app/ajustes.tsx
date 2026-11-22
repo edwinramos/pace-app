@@ -53,8 +53,8 @@ export default function Ajustes() {
         <T size={11} color={colors.dim}>Anuncia cada km el ritmo y si vas dentro del objetivo.</T>
       </Card>
       <Card>
-        <Label>GPS por defecto</Label>
-        <Segmented options={[{ value: 'gps', label: 'GPS real' }, { value: 'sim', label: 'Simulado' }]} value={s.gpsMode} onChange={(v) => s.set('gpsMode', v)} />
+        <Label>Modo de carrera por defecto</Label>
+        <Segmented options={[{ value: 'gps', label: 'GPS real' }, { value: 'treadmill', label: 'Caminadora' }, { value: 'sim', label: 'Simulado' }]} value={s.gpsMode} onChange={(v) => s.set('gpsMode', v)} />
       </Card>
       <Card>
         <Label>Sueño y FC en reposo</Label>

@@ -33,7 +33,8 @@
           "locationWhenInUsePermission": "Pace usa tu ubicación para grabar la carrera y pedir el clima de tu zona."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "./plugins/withReleaseSigning"
     ],
     "experiments": {
       "typedRoutes": false
